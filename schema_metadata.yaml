@@ -1,0 +1,147 @@
+version: "1.0"
+database: chatbot_db
+description: Metadata for HR chatbot query generation and validation
+
+tables:
+
+  department:
+    queryable: true
+    description: Company departments
+    aliases: [department, team, division]
+    columns:
+      id:
+        selectable: true
+        primary_key: true
+      name:
+        selectable: true
+        searchable: true
+        groupable: true
+
+  employee:
+    queryable: true
+    description: Employee master records
+    aliases: [employee, staff, worker]
+    columns:
+      id:
+        selectable: true
+        primary_key: true
+      first_name:
+        selectable: true
+        searchable: true
+      last_name:
+        selectable: true
+        searchable: true
+      email:
+        selectable: true
+        searchable: true
+        unique: true
+      position:
+        selectable: true
+        searchable: true
+        groupable: true
+      hire_date:
+        selectable: true
+        filterable: true
+        operators: ["=", ">", "<", ">=", "<="]
+      department_id:
+        join_key: true
+      manager_id:
+        join_key: true
+        self_reference: true
+
+  salary:
+    queryable: true
+    description: Employee salary details
+    aliases: [salary, pay, compensation]
+    columns:
+      employee_id:
+        join_key: true
+        unique: true
+      amount:
+        selectable: true
+        filterable: true
+        aggregations: [SUM, AVG, MIN, MAX]
+        operators: ["=", ">", "<", ">=", "<="]
+      effective_date:
+        selectable: true
+        filterable: true
+        operators: ["=", ">", "<", ">=", "<="]
+
+  attendance:
+    queryable: true
+    description: Employee attendance records
+    aliases: [attendance, presence]
+    columns:
+      employee_id:
+        join_key: true
+      date:
+        selectable: true
+        filterable: true
+        operators: ["=", ">", "<", ">=", "<="]
+      status:
+        selectable: true
+        filterable: true
+        allowed_values: [Present, Absent, Late]
+
+  leave:
+    queryable: true
+    description: Employee leave records
+    aliases: [leave, vacation, time_off]
+    columns:
+      employee_id:
+        join_key: true
+      start_date:
+        selectable: true
+        filterable: true
+        operators: ["=", ">", "<", ">=", "<="]
+      end_date:
+        selectable: true
+        filterable: true
+        operators: ["=", ">", "<", ">=", "<="]
+      leave_type:
+        selectable: true
+        filterable: true
+        allowed_values: [Sick, Vacation, Personal]
+      status:
+        selectable: true
+        filterable: true
+        allowed_values: [Approved, Pending, Denied]
+
+  chat_message:
+    queryable: false
+    description: Internal chat logs (AI only)
+    columns:
+      user_message:
+        searchable: true
+      ai_response:
+        searchable: true
+      timestamp:
+        filterable: true
+        operators: ["=", ">", "<", ">=", "<="]
+
+relationships:
+  - from: employee.department_id
+    to: department.id
+    type: many_to_one
+
+  - from: salary.employee_id
+    to: employee.id
+    type: one_to_one
+
+  - from: attendance.employee_id
+    to: employee.id
+    type: many_to_one
+
+  - from: leave.employee_id
+    to: employee.id
+    type: many_to_one
+
+  - from: employee.manager_id
+    to: employee.id
+    type: self_reference
+
+global_rules:
+  allowed_operators: ["=", ">", "<", ">=", "<="]
+  allowed_aggregations: [COUNT, SUM, AVG, MIN, MAX]
+  default_limit: 50
+  max_limit: 200
