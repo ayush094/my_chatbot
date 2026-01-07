@@ -27,6 +27,6 @@ class AttendanceAdmin(admin.ModelAdmin):
 
 @admin.register(Leave)
 class LeaveAdmin(admin.ModelAdmin):
-    list_display = ('employee', 'leave_type', 'start_date', 'end_date', 'status')
+    list_display = ('id','employee', 'leave_type', 'start_date', 'end_date', 'status')
     list_filter = ('leave_type', 'status', 'start_date')
     search_fields = ('employee__first_name', 'employee__last_name')

@@ -45,9 +45,12 @@ tables:
         operators: ["=", ">", "<", ">=", "<="]
       department_id:
         join_key: true
+        description: Link to the department record
       manager_id:
         join_key: true
         self_reference: true
+        description: Link to the employee record of this person's manager (Self-Join)
+
 
   salary:
     queryable: true
