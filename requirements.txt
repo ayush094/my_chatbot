@@ -7,3 +7,4 @@ pgvector
 sentence-transformers
 pypdf
 PyYAML
+djangorestframework-simplejwt

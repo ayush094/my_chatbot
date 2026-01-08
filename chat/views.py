@@ -37,8 +37,7 @@ class ChatAPIView(APIView):
     READ  → AI JSON → SQL → Answer
     WRITE → AI JSON → Action Handler
     """
-    permission_classes = [AllowAny]
-    authentication_classes = [CsrfExemptSessionAuthentication, BasicAuthentication]
+    # Permission and Authentication now handled by settings defaults (JWT)
 
     def post(self, request):
         message = request.data.get("message")
@@ -50,15 +49,13 @@ class ChatAPIView(APIView):
         # -------------------------------
         employee = None
         if request.user.is_authenticated:
-            # Match by Email OR Username (case-insensitive) for dev flexibility
-            employee = Employee.objects.filter(email__iexact=request.user.email).first()
-            print("USER EMAIL:", request.user.email)
-
-
+            # Match by linked Employee profile
+            employee = getattr(request.user, 'employee_profile', None)
+            
             if employee:
-                print(f"DEBUG: Authenticated {request.user.username} as {employee.first_name} (ID: {employee.id})")
+                print(f"DEBUG: Authenticated {request.user.email} as {employee.first_name} (Role: {request.user.role})")
             else:
-                print(f"DEBUG: Authenticated user '{request.user.username}' has no matching Employee record.")
+                print(f"DEBUG: Authenticated user '{request.user.email}' has no matching Employee record.")
         else:
             print("DEBUG: Request is Anonymous (Not logged in).")
 
@@ -105,18 +102,23 @@ class ChatAPIView(APIView):
                     return Response({"answer": "Please specify a leave ID to approve."}, status=400)
 
                 if not employee:
-                    return Response({"answer": "I couldn't verify your identity. Please log in to your account to perform this action."}, status=403)
+                    return Response({"answer": "I couldn't verify your employee profile. Please contact HR."}, status=403)
+
+                # Security checks using role
+                if request.user.role != 'manager':
+                    return Response({"answer": "Only managers can approve leave requests."}, status=403)
 
                 try:
                     # Resolve leave and hierarchy in one go
-                    leave = Leave.objects.select_related("employee__manager").get(id=leave_id)
+                    leave = Leave.objects.select_related("employee__user", "employee__manager").get(id=leave_id)
+                    manager_profile = Employee.objects.get(user=request.user)
 
                     # Security checks
-                    if leave.employee == employee:
-                        return Response({"answer": "You cannot approve your own leave."}, status=403)
+                    if leave.employee.manager != manager_profile:
+                        return Response({"answer": "You can only approve leave requests for your direct reports."}, status=403)
 
-                    if leave.employee.manager != employee:
-                        return Response({"answer": "You are not authorized to approve this leave."}, status=403)
+                    if leave.employee.user == request.user:
+                        return Response({"answer": "You cannot approve your own leave."}, status=403)
 
                     # Perform update
                     leave.status = "Approved"

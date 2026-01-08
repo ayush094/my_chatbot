@@ -4,11 +4,45 @@ import os
 import yaml
 from django.conf import settings
 
+# Column alias normalization for natural language
+COLUMN_ALIAS_MAP = {
+    "employee": {
+        "name": ["first_name", "last_name"]
+    }
+}
 
 def load_metadata():
     metadata_path = os.path.join(settings.BASE_DIR, "schema_metadata.yaml")
     with open(metadata_path, "r") as f:
         return yaml.safe_load(f)
+
+def normalize_column_refs(columns, alias_map, tables):
+    """
+    Expands natural-language columns like employee.name
+    into employee.first_name, employee.last_name
+    """
+    normalized = []
+
+    for col_ref in columns:
+        if col_ref == "*":
+            normalized.append(col_ref)
+            continue
+
+        if "." not in col_ref:
+            normalized.append(col_ref)
+            continue
+
+        alias, col_name = col_ref.split(".", 1)
+        table = alias_map.get(alias)
+
+        if table and col_name in COLUMN_ALIAS_MAP.get(table, {}):
+            for real_col in COLUMN_ALIAS_MAP[table][col_name]:
+                normalized.append(f"{alias}.{real_col}")
+        else:
+            normalized.append(col_ref)
+
+    return normalized
+
 
 
 def validate_json(plan: dict) -> bool:
@@ -67,6 +101,12 @@ def validate_json(plan: dict) -> bool:
         # 3. Validate Columns / data
         if action == "query":
             columns = plan.get("columns", [])
+
+            # 🔥 NORMALIZE ALIASES (THIS FIXES 'name')
+            columns = normalize_column_refs(columns, alias_map, tables)
+            plan["columns"] = columns
+
+            
             for col_ref in columns:
                 if col_ref == "*":
                     continue
